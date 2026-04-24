@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neuro-Shelf v1.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #080c14;
+    --bg2:       #0d1321;
+    --bg3:       #111827;
+    --panel:     #0f1623;
+    --border:    #1e2d45;
+    --accent:    #00d4ff;
+    --accent2:   #7c3aed;
+    --accent3:   #10b981;
+    --accent4:   #f59e0b;
+    --accent5:   #ef4444;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --glow:      rgba(0,212,255,0.15);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    height: 52px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  #topbar .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #topbar .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.5; transform:scale(0.8); }
+  }
+  #topbar .stats {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  #topbar .stats span { color: var(--accent); font-weight: 700; }
+  .topbar-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s;
+  }
+  .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── LAYOUT ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 300px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: width 0.3s;
+  }
+  #sidebar.collapsed { width: 0; border-right: none; }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-section h3 {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 12px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Form */
+  .field { margin-bottom: 10px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+  .field textarea { resize: vertical; min-height: 70px; }
+  .field select option { background: var(--bg2); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 9px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    color: var(--accent5);
+    border: 1px solid var(--accent5);
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s;
+    margin-top: 6px;
+  }
+  .btn-secondary:hover { background: rgba(239,68,68,0.1); }
+
+  /* Node list */
+  #node-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  #node-list::-webkit-scrollbar { width: 4px; }
+  #node-list::-webkit-scrollbar-track { background: transparent; }
+  #node-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .node-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    margin-bottom: 4px;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .node-item:hover { background: var(--bg2); border-color: var(--border); }
+  .node-item.active { background: var(--glow); border-color: var(--accent); }
+  .node-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .node-item-label { font-size: 13px; font-weight: 500; flex: 1; }
+  .node-item-group { font-size: 10px; color: var(--muted); }
+
+  /* ── DETAIL PANEL (right) ── */
+  #detail-panel {
+    width: 260px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 16px;
+    transition: width 0.3s;
+  }
+  #detail-panel.hidden { width: 0; padding: 0; overflow: hidden; border-left: none; }
+  #detail-panel h3 {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+  }
+  #detail-panel .detail-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  #detail-panel .detail-group {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .detail-row { margin-bottom: 10px; }
+  .detail-row label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .detail-row p { font-size: 13px; line-height: 1.5; }
+  .tag-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    margin: 2px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--muted);
+  }
+  .connected-node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--bg2);
+    margin-bottom: 4px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .connected-node:hover { background: var(--bg3); }
+
+  /* ── GRAPH AREA ── */
+  #graph-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  /* Dot grid background */
+  #graph-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, #1e2d45 1px, transparent 1px);
+    background-size: 30px 30px;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  #graph-svg {
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+  }
+  #graph-svg:active { cursor: grabbing; }
+
+  /* SVG elements */
+  .link {
+    stroke: #1e3a5f;
+    stroke-width: 1.2;
+    stroke-opacity: 0.7;
+    transition: stroke 0.2s;
+  }
+  .link.highlighted { stroke: var(--accent); stroke-opacity: 1; stroke-width: 2; }
+  .link-label {
+    font-size: 9px;
+    fill: var(--muted);
+    font-family: 'Space Mono', monospace;
+    pointer-events: none;
+  }
+
+  .node circle {
+    stroke-width: 2;
+    cursor: pointer;
+    transition: r 0.2s;
+    filter: drop-shadow(0 0 4px currentColor);
+  }
+  .node.active circle {
+    stroke-width: 3;
+    filter: drop-shadow(0 0 12px currentColor);
+  }
+  .node text {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    fill: #cbd5e1;
+    pointer-events: none;
+    text-anchor: middle;
+  }
+
+  /* ── TOOLTIP ── */
+  #tooltip {
+    position: absolute;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 200;
+    max-width: 200px;
+  }
+  #tooltip.show { opacity: 1; }
+  #tooltip .tt-label { font-weight: 600; color: var(--accent); margin-bottom: 3px; }
+  #tooltip .tt-group { color: var(--muted); font-size: 11px; }
+
+  /* ── CONTROLS ── */
+  #controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 50;
+  }
+  .ctrl-btn {
+    width: 36px; height: 36px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── SEARCH ── */
+  #search-wrap {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    width: 280px;
+  }
+  #search-input {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  #search-input:focus { border-color: var(--accent); text-align: left; }
+
+  /* ── LEGEND ── */
+  #legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    z-index: 50;
+  }
+  #legend h4 {
+    color: var(--muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    font-family: 'Space Mono', monospace;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--accent);
+    color: #000;
+    padding: 9px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 999;
+    transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Scrollbar for sidebar */
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    NEURO-SHELF <span style="color:var(--muted);font-weight:400;font-size:10px;margin-left:4px;">v1.0</span>
+  </div>
+  <button class="topbar-btn" onclick="toggleSidebar()">&#9776; Panel</button>
+  <button class="topbar-btn" onclick="exportData()">&#8659; Export JSON</button>
+  <button class="topbar-btn" onclick="importTrigger()">&#8657; Import</button>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+  <button class="topbar-btn" onclick="resetGraph()">&#8635; Reset Demo</button>
+  <div class="stats">
+    NODES <span id="stat-nodes">0</span> &nbsp;|&nbsp;
+    LINKS <span id="stat-links">0</span> &nbsp;|&nbsp;
+    GROUPS <span id="stat-groups">0</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <h3 id="form-title">&#43; Tambah Node</h3>
+      <input type="hidden" id="edit-id">
+      <div class="field">
+        <label>Label / Judul</label>
+        <input type="text" id="f-label" placeholder="Misal: React, Quantum Physics...">
+      </div>
+      <div class="field">
+        <label>Grup / Kategori</label>
+        <input type="text" id="f-group" placeholder="Tech, Science, Art...">
+      </div>
+      <div class="field">
+        <label>Tags (pisah koma)</label>
+        <input type="text" id="f-tags" placeholder="javascript, frontend, library">
+      </div>
+      <div class="field">
+        <label>Catatan</label>
+        <textarea id="f-notes" placeholder="Tulis catatan tentang topik ini..."></textarea>
+      </div>
+      <div class="field">
+        <label>Bobot Node (1–20)</label>
+        <input type="number" id="f-val" min="1" max="20" value="6">
+      </div>
+      <button class="btn-primary" onclick="submitNode()">Simpan Node</button>
+      <button class="btn-secondary" id="btn-delete" style="display:none" onclick="deleteNode()">&#128465; Hapus Node</button>
+      <button class="btn-secondary" style="border-color:var(--muted);color:var(--muted);margin-top:4px" onclick="clearForm()">Batal / Clear</button>
+    </div>
+
+    <div class="sidebar-section" style="padding-bottom:6px">
+      <h3>Daftar Node</h3>
+      <input type="text" id="list-search" placeholder="Cari node..." style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;outline:none;margin-bottom:8px">
+    </div>
+    <div id="node-list"></div>
+  </div>
+
+  <!-- GRAPH -->
+  <div id="graph-container">
+    <div id="search-wrap">
+      <input type="text" id="search-input" placeholder="Cari & highlight node...">
+    </div>
+
+    <svg id="graph-svg">
+      <defs>
+        <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 Z" fill="#1e3a5f"/>
+        </marker>
+      </defs>
+      <g id="graph-root">
+        <g id="links-layer"></g>
+        <g id="nodes-layer"></g>
+      </g>
+    </svg>
+
+    <div id="tooltip">
+      <div class="tt-label" id="tt-label"></div>
+      <div class="tt-group" id="tt-group"></div>
+    </div>
+
+    <div id="controls">
+      <div class="ctrl-btn" onclick="zoomIn()" title="Zoom In">+</div>
+      <div class="ctrl-btn" onclick="zoomOut()" title="Zoom Out">&#8722;</div>
+      <div class="ctrl-btn" onclick="zoomFit()" title="Fit View">&#9635;</div>
+    </div>
+
+    <div id="legend">
+      <h4>Groups</h4>
+      <div id="legend-items"></div>
+    </div>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div id="detail-panel" class="hidden">
+    <h3>Detail Node</h3>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════
+// STATE & STORAGE
+// ════════════════════════════════════════════════
+const STORAGE_KEY = 'neuro_shelf_v1';
+let graphData = { nodes: [], links: [] };
+let selectedNode = null;
+let simulation, svgEl, gRoot, zoomBehavior;
+let saveTimer = null;
+
+const GROUP_COLORS = [
+  '#00d4ff','#7c3aed','#10b981','#f59e0b',
+  '#ef4444','#f472b6','#a78bfa','#34d399',
+  '#fb923c','#38bdf8','#e879f9','#86efac'
+];
+let groupColorMap = {};
+
+function getGroupColor(group) {
+  if (!groupColorMap[group]) {
+    const used = Object.values(groupColorMap);
+    const available = GROUP_COLORS.filter(c => !used.includes(c));
+    groupColorMap[group] = available.length ? available[0] : GROUP_COLORS[used.length % GROUP_COLORS.length];
+  }
+  return groupColorMap[group];
+}
+
+function saveData() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ graphData, groupColorMap }));
+    } catch(e) { console.warn('Storage full:', e); }
+  }, 1000);
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      graphData = parsed.graphData || { nodes: [], links: [] };
+      groupColorMap = parsed.groupColorMap || {};
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// ════════════════════════════════════════════════
+// DEMO DATA
+// ════════════════════════════════════════════════
+const DEMO_DATA = {
+  nodes: [
+    { id: 'N1', label: 'JavaScript', group: 'Tech', tags: ['javascript','programming','web'], notes: 'Bahasa pemrograman utama web.', val: 14 },
+    { id: 'N2', label: 'React', group: 'Tech', tags: ['javascript','react','frontend','library'], notes: 'Library UI berbasis komponen.', val: 12 },
+    { id: 'N3', label: 'D3.js', group: 'Tech', tags: ['javascript','visualization','library'], notes: 'Library visualisasi data berbasis SVG.', val: 9 },
+    { id: 'N4', label: 'Graph Theory', group: 'Math', tags: ['graph','network','math','algorithm'], notes: 'Studi tentang node dan edge.', val: 11 },
+    { id: 'N5', label: 'Force Simulation', group: 'Physics', tags: ['physics','simulation','graph'], notes: 'Model fisika untuk layout graph.', val: 10 },
+    { id: 'N6', label: 'Node.js', group: 'Tech', tags: ['javascript','backend','server'], notes: 'Runtime JS untuk server-side.', val: 10 },
+    { id: 'N7', label: 'TypeScript', group: 'Tech', tags: ['javascript','programming','type-safe'], notes: 'Superset JavaScript dengan tipe statis.', val: 9 },
+    { id: 'N8', label: 'Machine Learning', group: 'AI', tags: ['ai','algorithm','math','data'], notes: 'Sistem yang belajar dari data.', val: 13 },
+    { id: 'N9', label: 'Neural Network', group: 'AI', tags: ['ai','graph','network','algorithm'], notes: 'Model komputasi terinspirasi otak.', val: 12 },
+    { id: 'N10', label: 'IndexedDB', group: 'Web', tags: ['web','database','storage','javascript'], notes: 'Database browser untuk penyimpanan besar.', val: 7 },
+    { id: 'N11', label: 'SVG', group: 'Web', tags: ['web','visualization','frontend'], notes: 'Format grafis vektor untuk web.', val: 8 },
+    { id: 'N12', label: 'Algorithm', group: 'Math', tags: ['algorithm','math','programming'], notes: 'Prosedur langkah-demi-langkah untuk memecahkan masalah.', val: 10 },
+  ],
+  links: [
+    { id: 'L1', source: 'N1', target: 'N2', relation: 'library-of' },
+    { id: 'L2', source: 'N1', target: 'N3', relation: 'library-of' },
+    { id: 'L3', source: 'N1', target: 'N6', relation: 'runtime-of' },
+    { id: 'L4', source: 'N1', target: 'N7', relation: 'superset-of' },
+    { id: 'L5', source: 'N4', target: 'N5', relation: 'applied-in' },
+    { id: 'L6', source: 'N4', target: 'N9', relation: 'basis-of' },
+    { id: 'L7', source: 'N8', target: 'N9', relation: 'includes' },
+    { id: 'L8', source: 'N3', target: 'N11', relation: 'uses' },
+    { id: 'L9', source: 'N1', target: 'N10', relation: 'api-of' },
+    { id: 'L10', source: 'N12', target: 'N8', relation: 'core-of' },
+    { id: 'L11', source: 'N5', target: 'N3', relation: 'powering' },
+  ]
+};
+
+function resetGraph() {
+  graphData = JSON.parse(JSON.stringify(DEMO_DATA));
+  groupColorMap = {};
+  selectedNode = null;
+  saveData();
+  renderAll();
+  showToast('Demo data dimuat!');
+}
+
+// ════════════════════════════════════════════════
+// AUTO-LINKING (Keyword Scanner)
+// ════════════════════════════════════════════════
+function autoLink(newNode) {
+  const newTags = (newNode.tags || []).map(t => t.toLowerCase().trim());
+  if (!newTags.length) return;
+
+  graphData.nodes.forEach(existing => {
+    if (existing.id === newNode.id) return;
+    const exTags = (existing.tags || []).map(t => t.toLowerCase().trim());
+    const shared = newTags.filter(t => exTags.includes(t));
+    if (!shared.length) return;
+
+    // Check if link already exists
+    const exists = graphData.links.some(l =>
+      (l.source === newNode.id || l.source?.id === newNode.id) &&
+      (l.target === existing.id || l.target?.id === existing.id) ||
+      (l.source === existing.id || l.source?.id === existing.id) &&
+      (l.target === newNode.id || l.target?.id === newNode.id)
+    );
+    if (!exists) {
+      graphData.links.push({
+        id: crypto.randomUUID(),
+        source: newNode.id,
+        target: existing.id,
+        relation: `shared:${shared[0]}`
+      });
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+// FORM LOGIC
+// ════════════════════════════════════════════════
+function clearForm() {
+  document.getElementById('edit-id').value = '';
+  document.getElementById('f-label').value = '';
+  document.getElementById('f-group').value = '';
+  document.getElementById('f-tags').value = '';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('f-val').value = 6;
+  document.getElementById('form-title').textContent = '+ Tambah Node';
+  document.getElementById('btn-delete').style.display = 'none';
+  selectedNode = null;
+  highlightNode(null);
+  closeDetail();
+}
+
+function submitNode() {
+  const label = document.getElementById('f-label').value.trim();
+  const group = document.getElementById('f-group').value.trim() || 'Umum';
+  const tags = document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const notes = document.getElementById('f-notes').value.trim();
+  const val = Math.max(1, Math.min(20, parseInt(document.getElementById('f-val').value) || 6));
+  const editId = document.getElementById('edit-id').value;
+
+  if (!label) { showToast('Label tidak boleh kosong!'); return; }
+
+  if (editId) {
+    // Edit existing
+    const node = graphData.nodes.find(n => n.id === editId);
+    if (node) {
+      node.label = label;
+      node.group = group;
+      node.tags = tags;
+      node.notes = notes;
+      node.val = val;
+    }
+    showToast('Node diperbarui!');
+  } else {
+    // New node
+    const newNode = {
+      id: crypto.randomUUID(),
+      label, group, tags, notes, val
+    };
+    graphData.nodes.push(newNode);
+    autoLink(newNode);
+    showToast('Node ditambahkan! Auto-link aktif ✦');
+  }
+
+  saveData();
+  renderAll();
+  clearForm();
+}
+
+function editNode(nodeId) {
+  const node = graphData.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  document.getElementById('edit-id').value = node.id;
+  document.getElementById('f-label').value = node.label;
+  document.getElementById('f-group').value = node.group || '';
+  document.getElementById('f-tags').value = (node.tags || []).join(', ');
+  document.getElementById('f-notes').value = node.notes || '';
+  document.getElementById('f-val').value = node.val || 6;
+  document.getElementById('form-title').textContent = '✎ Edit Node';
+  document.getElementById('btn-delete').style.display = 'block';
+  document.getElementById('f-label').focus();
+}
+
+function deleteNode() {
+  const editId = document.getElementById('edit-id').value;
+  if (!editId) return;
+  graphData.nodes = graphData.nodes.filter(n => n.id !== editId);
+  graphData.links = graphData.links.filter(l => {
+    const s = l.source?.id || l.source;
+    const t = l.target?.id || l.target;
+    return s !== editId && t !== editId;
+  });
+  saveData();
+  renderAll();
+  clearForm();
+  closeDetail();
+  showToast('Node dihapus!');
+}
+
+// ════════════════════════════════════════════════
+// D3 GRAPH
+// ════════════════════════════════════════════════
+function initGraph() {
+  svgEl = d3.select('#graph-svg');
+  gRoot = d3.select('#graph-root');
+
+  zoomBehavior = d3.zoom()
+    .scaleExtent([0.1, 4])
+    .on('zoom', (event) => {
+      gRoot.attr('transform', event.transform);
+    });
+
+  svgEl.call(zoomBehavior);
+  svgEl.on('click', (event) => {
+    if (event.target === svgEl.node() || event.target.tagName === 'svg') {
+      clearForm();
+    }
+  });
+}
+
+function renderGraph() {
+  // Re-create simulation nodes (need plain objects for d3)
+  const nodes = graphData.nodes.map(n => ({ ...n }));
+  const nodeMap = {};
+  nodes.forEach(n => nodeMap[n.id] = n);
+
+  const links = graphData.links.map(l => ({
+    ...l,
+    source: typeof l.source === 'object' ? l.source.id : l.source,
+    target: typeof l.target === 'object' ? l.target.id : l.target,
+  })).filter(l => nodeMap[l.source] && nodeMap[l.target]);
+
+  // Stop old simulation
+  if (simulation) simulation.stop();
+
+  const width = document.getElementById('graph-container').clientWidth;
+  const height = document.getElementById('graph-container').clientHeight;
+
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(100).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(-220))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 10))
+    .alphaDecay(0.02);
+
+  // Links
+  const linkSel = d3.select('#links-layer')
+    .selectAll('g.link-group')
+    .data(links, d => d.id || `${d.source}-${d.target}`)
+    .join(
+      enter => {
+        const g = enter.append('g').attr('class', 'link-group');
+        g.append('line').attr('class', 'link');
+        g.append('text').attr('class', 'link-label');
+        return g;
+      }
+    );
+
+  // Nodes
+  const nodeSel = d3.select('#nodes-layer')
+    .selectAll('g.node')
+    .data(nodes, d => d.id)
+    .join(
+      enter => {
+        const g = enter.append('g').attr('class', 'node');
+        g.append('circle');
+        g.append('text').attr('dy', d => nodeRadius(d) + 13);
+        g.call(d3.drag()
+          .on('start', dragStart)
+          .on('drag', dragging)
+          .on('end', dragEnd));
+        g.on('click', (event, d) => {
+          event.stopPropagation();
+          selectNode(d, nodeSel, linkSel);
+        });
+        g.on('mouseover', (event, d) => showTooltip(event, d));
+        g.on('mousemove', (event) => moveTooltip(event));
+        g.on('mouseout', () => hideTooltip());
+        return g;
+      }
+    );
+
+  // Update circle and text
+  nodeSel.select('circle')
+    .attr('r', d => nodeRadius(d))
+    .attr('fill', d => getGroupColor(d.group) + '22')
+    .attr('stroke', d => getGroupColor(d.group));
+
+  nodeSel.select('text')
+    .text(d => d.label.length > 14 ? d.label.slice(0,13)+'…' : d.label)
+    .attr('dy', d => nodeRadius(d) + 13);
+
+  // Tick
+  simulation.on('tick', () => {
+    linkSel.select('line')
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+
+    linkSel.select('text')
+      .attr('x', d => (d.source.x + d.target.x) / 2)
+      .attr('y', d => (d.source.y + d.target.y) / 2)
+      .text(d => d.relation || '');
+
+    nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  // Reheat on new nodes
+  simulation.alpha(0.5).restart();
+}
+
+function nodeRadius(d) {
+  return 6 + (d.val || 6) * 1.5;
+}
+
+function dragStart(event, d) {
+  if (!event.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x; d.fy = d.y;
+}
+function dragging(event, d) { d.fx = event.x; d.fy = event.y; }
+function dragEnd(event, d) {
+  if (!event.active) simulation.alphaTarget(0);
+  d.fx = null; d.fy = null;
+}
+
+function selectNode(d, nodeSel, linkSel) {
+  selectedNode = d;
+  // Highlight
+  nodeSel.classed('active', n => n.id === d.id);
+  linkSel.select('line').classed('highlighted', l =>
+    (l.source.id || l.source) === d.id || (l.target.id || l.target) === d.id
+  );
+  // Edit form
+  editNode(d.id);
+  // Detail panel
+  showDetail(d);
+  // Node list highlight
+  renderNodeList();
+}
+
+function highlightNode(nodeId) {
+  d3.selectAll('.node').classed('active', d => d.id === nodeId);
+  d3.selectAll('.link-group line').classed('highlighted', l =>
+    nodeId && ((l.source.id || l.source) === nodeId || (l.target.id || l.target) === nodeId)
+  );
+}
+
+// ════════════════════════════════════════════════
+// DETAIL PANEL
+// ════════════════════════════════════════════════
+function showDetail(node) {
+  const panel = document.getElementById('detail-panel');
+  panel.classList.remove('hidden');
+
+  const connections = graphData.links.filter(l => {
+    const s = l.source?.id || l.source;
+    const t = l.target?.id || l.target;
+    return s === node.id || t === node.id;
+  });
+
+  const connectedIds = connections.map(l => {
+    const s = l.source?.id || l.source;
+    const t = l.target?.id || l.target;
+    return s === node.id ? t : s;
+  });
+  const connectedNodes = connectedIds.map(id => graphData.nodes.find(n => n.id === id)).filter(Boolean);
+
+  const color = getGroupColor(node.group);
+  document.getElementById('detail-content').innerHTML = `
+    <div class="detail-name" style="color:${color}">${node.label}</div>
+    <div class="detail-group">${node.group || 'Tanpa Grup'} &nbsp;·&nbsp; Bobot: ${node.val || 6}</div>
+    ${node.notes ? `<div class="detail-row"><label>Catatan</label><p>${node.notes}</p></div>` : ''}
+    ${node.tags?.length ? `
+      <div class="detail-row">
+        <label>Tags</label>
+        <div>${node.tags.map(t=>`<span class="tag-pill">${t}</span>`).join('')}</div>
+      </div>` : ''}
+    <div class="detail-row">
+      <label>Terhubung ke (${connectedNodes.length})</label>
+      ${connectedNodes.length ? connectedNodes.map(cn => `
+        <div class="connected-node" onclick="jumpToNode('${cn.id}')">
+          <div class="legend-dot" style="background:${getGroupColor(cn.group)}"></div>
+          ${cn.label}
+        </div>`).join('') : '<p style="color:var(--muted);font-size:12px">Belum ada koneksi</p>'}
+    </div>
+  `;
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.add('hidden');
+}
+
+function jumpToNode(id) {
+  const node = graphData.nodes.find(n => n.id === id);
+  if (!node) return;
+  editNode(id);
+  showDetail(node);
+  highlightNode(id);
+  renderNodeList();
+}
+
+// ════════════════════════════════════════════════
+// LEGEND
+// ════════════════════════════════════════════════
+function renderLegend() {
+  const groups = [...new Set(graphData.nodes.map(n => n.group))];
+  document.getElementById('legend-items').innerHTML = groups.map(g => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${getGroupColor(g)}"></div>
+      <span style="font-size:11px;color:var(--text)">${g}</span>
+    </div>
+  `).join('');
+}
+
+// ════════════════════════════════════════════════
+// NODE LIST
+// ════════════════════════════════════════════════
+function renderNodeList() {
+  const q = document.getElementById('list-search').value.toLowerCase();
+  const filtered = q
+    ? graphData.nodes.filter(n => n.label.toLowerCase().includes(q) || (n.group||'').toLowerCase().includes(q))
+    : graphData.nodes;
+
+  const editId = document.getElementById('edit-id').value;
+  document.getElementById('node-list').innerHTML = filtered.map(n => `
+    <div class="node-item ${n.id === editId ? 'active' : ''}" onclick="jumpToNode('${n.id}')">
+      <div class="node-dot" style="background:${getGroupColor(n.group)}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="node-item-label" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.label}</div>
+        <div class="node-item-group">${n.group || ''}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ════════════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('stat-nodes').textContent = graphData.nodes.length;
+  document.getElementById('stat-links').textContent = graphData.links.length;
+  const groups = new Set(graphData.nodes.map(n => n.group));
+  document.getElementById('stat-groups').textContent = groups.size;
+}
+
+// ════════════════════════════════════════════════
+// TOOLTIP
+// ════════════════════════════════════════════════
+function showTooltip(event, d) {
+  const tt = document.getElementById('tooltip');
+  document.getElementById('tt-label').textContent = d.label;
+  document.getElementById('tt-group').textContent = `${d.group || 'Tanpa Grup'} · ${d.tags?.join(', ') || 'no tags'}`;
+  tt.classList.add('show');
+  moveTooltip(event);
+}
+function moveTooltip(event) {
+  const tt = document.getElementById('tooltip');
+  const rect = document.getElementById('graph-container').getBoundingClientRect();
+  let x = event.clientX - rect.left + 14;
+  let y = event.clientY - rect.top - 10;
+  if (x + 200 > rect.width) x -= 220;
+  tt.style.left = x + 'px';
+  tt.style.top = y + 'px';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+// ════════════════════════════════════════════════
+// ZOOM CONTROLS
+// ════════════════════════════════════════════════
+function zoomIn() { svgEl.transition().call(zoomBehavior.scaleBy, 1.4); }
+function zoomOut() { svgEl.transition().call(zoomBehavior.scaleBy, 0.7); }
+function zoomFit() {
+  const w = document.getElementById('graph-container').clientWidth;
+  const h = document.getElementById('graph-container').clientHeight;
+  svgEl.transition().duration(600)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(w/2, h/2).scale(0.85));
+}
+
+// ════════════════════════════════════════════════
+// SIDEBAR TOGGLE
+// ════════════════════════════════════════════════
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+// ════════════════════════════════════════════════
+// SEARCH (highlight)
+// ════════════════════════════════════════════════
+document.getElementById('search-input').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  if (!q) { d3.selectAll('.node').style('opacity', 1); return; }
+  d3.selectAll('.node').style('opacity', d =>
+    d.label.toLowerCase().includes(q) || (d.group||'').toLowerCase().includes(q) ? 1 : 0.15
+  );
+});
+
+document.getElementById('list-search').addEventListener('input', renderNodeList);
+
+// ════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ════════════════════════════════════════════════
+function exportData() {
+  const clean = {
+    nodes: graphData.nodes,
+    links: graphData.links.map(l => ({
+      ...l,
+      source: l.source?.id || l.source,
+      target: l.target?.id || l.target
+    }))
+  };
+  const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'neuro-shelf-export.json';
+  a.click();
+  showToast('Data diekspor!');
+}
+
+function importTrigger() { document.getElementById('import-file').click(); }
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (parsed.nodes) {
+        graphData = parsed;
+        groupColorMap = {};
+        saveData();
+        renderAll();
+        showToast('Data diimpor!');
+      }
+    } catch(err) { showToast('File tidak valid!'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ════════════════════════════════════════════════
+// RENDER ALL
+// ════════════════════════════════════════════════
+function renderAll() {
+  renderGraph();
+  renderNodeList();
+  renderLegend();
+  updateStats();
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  initGraph();
+  const loaded = loadData();
+  if (!loaded || graphData.nodes.length === 0) {
+    graphData = JSON.parse(JSON.stringify(DEMO_DATA));
+    saveData();
+  }
+  renderAll();
+});
+
+window.addEventListener('resize', () => {
+  if (simulation) {
+    const w = document.getElementById('graph-container').clientWidth;
+    const h = document.getElementById('graph-container').clientHeight;
+    simulation.force('center', d3.forceCenter(w/2, h/2));
+    simulation.alpha(0.2).restart();
+  }
+});
+</script>
+</body>
+</html>
